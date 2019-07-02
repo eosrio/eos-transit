@@ -1,7 +1,9 @@
 import { Api, ApiInterfaces, RpcInterfaces, JsonRpc } from 'eosjs';
 import { WalletProvider, NetworkConfig, WalletAuth, DiscoveryOptions } from 'eos-transit';
 import * as EosLedger from './EosLedger';
-import Transport from '@ledgerhq/hw-transport-u2f';
+import TransportU2F from '@ledgerhq/hw-transport-u2f';
+import TransportWebAuthn from '@ledgerhq/hw-transport-webauthn';
+import TransportWebBLE from '@ledgerhq/hw-transport-web-ble';
 import LedgerDataManager from './LedgerDataManager';
 import 'babel-polyfill';
 import * as ecc from 'eosjs-ecc';
@@ -20,9 +22,19 @@ export interface matchedIndexItem {
 }
 
 class LedgerProxy {
+
+	_exchangeTimeout: number;
+	transport: any;
+	public constructor(exchangeTimeout: number, supplied_transport: any){
+		this._exchangeTimeout = exchangeTimeout;
+		this.transport = supplied_transport;
+	};
+
 	async getPathKeys(keyPositions: number[]): Promise<matchedIndexItem[]> {
-		let transport = await Transport.create();
-		const eos = new EosLedger.default(transport);
+		// let transport: any = await this.initTransport();
+
+		// let transport = await Transport.create();
+		const eos = new EosLedger.default(this.transport);
 		let keys: matchedIndexItem[] = [];
 
 		for (let num of keyPositions) {
@@ -35,8 +47,10 @@ class LedgerProxy {
 	}
 
 	async sign(toSign: Buffer, index: number): Promise<string> {
-		let transport = await Transport.create();
-		const eos = new EosLedger.default(transport);
+		// let transport: any = await this.initTransport();
+
+		// let transport = await Transport.create();
+		const eos = new EosLedger.default(this.transport, this._exchangeTimeout);
 		let signatures: string[] = [ '' ];
 
 		let toSignHex = toSign.toString('hex');
@@ -49,6 +63,18 @@ class LedgerProxy {
 
 		return si.toString();
 	}
+
+	// private async initTransport() {
+	// 	let transport: any;
+	// 	if (this._transport === 'TransportWebAuthn') {
+	// 		transport = await TransportWebAuthn.create();
+	// 	}
+	// 	else {
+	// 		transport = await TransportU2F.create();
+	// 	}
+	// 	transport.setExchangeTimeout(this._exchangeTimeout);
+	// 	return transport;
+	// }
 }
 
 export interface ledgerWalletProviderOptions {
@@ -56,7 +82,8 @@ export interface ledgerWalletProviderOptions {
 	name?: string;
 	shortName?: string;
 	description?: string;
-	errorTimeout?: number;
+	exchangeTimeout?: number;
+	transport?: 'TransportWebAuthn' | 'TransportU2F' | 'TransportWebBLE';
 }
 
 export function ledgerWalletProvider(
@@ -65,7 +92,8 @@ export function ledgerWalletProvider(
 		name = 'Ledger Nano S',
 		shortName = 'Ledger Nano S',
 		description = 'Use Ledger Nano S hardware wallet to sign your transactions',
-		errorTimeout
+		exchangeTimeout = 10000,
+		transport = 'TransportU2F'
 	}: ledgerWalletProviderOptions = {}
 ) {
 	return function makeWalletProvider(network: NetworkConfig): WalletProvider {
@@ -74,11 +102,22 @@ export function ledgerWalletProvider(
 		let selectedIndex: number = -1;
 		let selectedIndexArray: { id: string; index: number }[] = [];
 		let keyMap: matchedIndexItem[] = [];
+		let ledger: LedgerProxy;
+		let selectedTransport: any;
 
-		function connect(appName: string) {
-			return new Promise((resolve, reject) => {
-				resolve();
-			});
+		async function connect(appName: string) {
+			if (transport === 'TransportWebAuthn') {
+				selectedTransport = await TransportWebAuthn.create();
+			} else if (transport === 'TransportWebBLE') {
+				selectedTransport = await TransportWebBLE.create();
+			}
+			else {
+				selectedTransport = await TransportU2F.create();
+			}
+
+			selectedTransport.setExchangeTimeout(exchangeTimeout);
+			ledger = new LedgerProxy(exchangeTimeout, selectedTransport);
+
 		}
 
 		function discover(discoveryOptions: DiscoveryOptions) {
@@ -94,11 +133,7 @@ export function ledgerWalletProvider(
 					}
 				});
 
-				// console.log('missingIndexs:');
-				// console.log(missingIndexs);
-
-				let ledger = new LedgerProxy();
-				ledger
+				return ledger
 					.getPathKeys(missingIndexs)
 					.then((keysResult: matchedIndexItem[]) => {
 						//Merge the new key info with any previous lookups
@@ -111,7 +146,6 @@ export function ledgerWalletProvider(
 						};
 						resolve(discoveryInfo);
 					})
-					.catch((ex) => reject(ex));
 			});
 		}
 
@@ -134,15 +168,12 @@ export function ledgerWalletProvider(
 			} else {
 				throw 'When calling the ledger login function: accountName, authorization, index and key must be supplied';
 			}
-
-			return new Promise<WalletAuth>((resolve, reject) => {
-				let user: WalletAuth = {
-					accountName: accountName,
-					permission: authorization,
-					publicKey: key
-				};
-				resolve(user);
-			});
+			let user: WalletAuth = {
+				accountName: accountName,
+				permission: authorization,
+				publicKey: key
+			};
+			return user;
 		}
 
 		function logout(accountName?: string): Promise<boolean> {
@@ -192,7 +223,10 @@ export function ledgerWalletProvider(
 						api
 					);
 
-					let ledger = new LedgerProxy();
+					// console.log("ledgerBuffer");
+					// console.log(ledgerBuffer);
+
+					// let ledger = new LedgerProxy(exchangeTimeout, transport);
 
 					// console.log(_txn);
 					// console.log(selectedIndexArray);

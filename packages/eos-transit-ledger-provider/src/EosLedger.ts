@@ -18,7 +18,7 @@
 
 // FIXME drop:
 import { splitPath, foreach } from "./EosUtils";
-import Transport from "@ledgerhq/hw-transport-u2f";
+// import Transport from "@ledgerhq/hw-transport-u2f";
 //import Transport from "@ledgerhq/hw-transport";
 
 const CLA = 0xD4;
@@ -36,7 +36,7 @@ const P1_MORE = 0x80;
 class Result1 {
   public publicKey: any;
   public address: any;
-  public chainCode: any;  
+  public chainCode: any;
 }
 class Result2 {
   public arbitraryDataEnabled: any;
@@ -53,9 +53,9 @@ class Result2 {
  */
 export default class EOS {
 
-  transport: any;  
+  transport: any;
 
-  constructor(transport: any, scrambleKey = "e0s") {
+  constructor(transport: any, exchangeTimeout = 5000, scrambleKey = "e0s") {
     this.transport = transport;
     transport.decorateAppAPIMethods(this, ["getAddress", "signTransaction", "signPersonalMessage", "getAppConfiguration"], scrambleKey);
   }
@@ -100,7 +100,7 @@ export default class EOS {
     let paths = splitPath(path);
     let offset = 0;
     let rawTx = new Buffer(rawTxHex, "hex");
-    let toSend = [];
+    let toSend: any[] = [];
     let response: any;
     while (offset !== rawTx.length) {
       let maxChunkSize = offset === 0 ? 150 - 1 - paths.length * 4 : 150;
@@ -155,7 +155,7 @@ export default class EOS {
     let paths = splitPath(path);
     let offset = 0;
     let message = new Buffer(messageHex, "hex");
-    let toSend = [];
+    let toSend: any[] = [];
     let response: any;
     while (offset !== message.length) {
       let maxChunkSize = offset === 0 ? 150 - 1 - paths.length * 4 - 4 : 150;

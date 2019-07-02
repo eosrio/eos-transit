@@ -1,12 +1,14 @@
 {
 	"name": "eos-transit-meetone-provider",
-	"version": "3.0.4",
+	"version": "3.1.2",
 	"description": "meetone wallet provider for eos-transit",
 	"license": "UNLICENSED",
 	"main": "lib/index.js",
 	"module": "lib/index.js",
 	"types": "lib",
 	"scripts": {
+		"echo": "echo \"================== eos-transit-meetone-provider ===================\"",
+		"installpkg": "yarn echo && npm install",
 		"clean": "rm -rf lib && rm -rf umd",
 		"prebuild": "yarn clean",
 		"build": "../../node_modules/typescript/bin/tsc",
@@ -16,8 +18,8 @@
 		"lint": "../../node_modules/.bin/tslint -c ../../tslint.json -p ./tsconfig.json"
 	},
 	"dependencies": {
-		"eos-transit": "^3.0.1",
-		"eosjs": "^20.0.0-80f0215.0"
+		"eos-transit": "^3.1.2",
+		"eosjs": "^20.0.0"
 	},
 	"devDependencies": {
 		"webpack": "^4.25.1",
